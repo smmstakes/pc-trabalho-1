@@ -1,0 +1,9 @@
+AlignTrailingComments: true
+BasedOnStyle: Microsoft
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:    '^<.*>'
+    Priority: 1
+  - Regex:    '^".*"'
+    Priority: 2
+SortIncludes: true
