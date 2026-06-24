@@ -6,14 +6,14 @@
 #include "pool.h"
 #include "worker.h"
 
-#define NUM_READERS 23
-#define NUM_WRITERS 17
+#define NUM_READERS 11
+#define NUM_WRITERS 13
 
 int main()
 {
     printf("=== Informacoes do Pool de Conexoes do Banco de Dados === \n");
-    printf("Quantidade Maxima de Conexoes Simultaneas: %d", MAX_POOL_CONNECTIONS);
-    printf("Quantidade Maxima de Requisicoes no Pool: %d", MAX_POOL_REQUESTS);
+    printf("Quantidade Maxima de Conexoes Simultaneas: %d\n", MAX_POOL_SIMULTANEOUS_CONNECTIONS);
+    printf("Quantidade Maxima de Requisicoes no Pool: %d\n", MAX_POOL_REQUESTS);
 
     srand((uint8_t)time(NULL));
 
@@ -26,7 +26,9 @@ int main()
     for (uint8_t i = 0; i < NUM_READERS; i++)
     {
         worker_data_t *data = malloc(sizeof(worker_data_t));
-        data->thread_id = i + 1;
+
+        // 100+ identify the readers
+        data->thread_id = i + 101;
         data->pool = &global_pool;
 
         pthread_create(&reader_threads[i], NULL, bi_reader_worker, data);
@@ -35,7 +37,9 @@ int main()
     for (uint8_t i = 0; i < NUM_WRITERS; i++)
     {
         worker_data_t *data = malloc(sizeof(worker_data_t));
-        data->thread_id = i + 1;
+
+        // 200+ identify the readers
+        data->thread_id = i + 201;
         data->pool = &global_pool;
 
         pthread_create(&writer_threads[i], NULL, etl_writer_worker, data);
@@ -54,7 +58,7 @@ int main()
     pool_destroy(&global_pool);
 
     printf("=== Informacoes Finais do Pool de Conexoes do Banco de Dados === \n");
-    printf("Total de Conexões Executadas com Seguranca: %u", global_pool.total_connections);
+    printf("Total de Conexões Executadas com Seguranca: %u\n", global_pool.total_connections);
 
     return 0;
 }

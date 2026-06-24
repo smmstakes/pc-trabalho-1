@@ -6,11 +6,14 @@
 #include <stdint.h>
 #include <unistd.h>
 
-/* Maximum number of connections in the pool */
-#define MAX_POOL_CONNECTIONS 13
+/* Maximum number of simultaneous connections in the pool */
+#define MAX_POOL_SIMULTANEOUS_CONNECTIONS 13
 
 /* Maximum number of requests from same type */
 #define MAX_POOL_REQUESTS 7
+
+/* Maximum number of connectinos in the pool */
+#define MAX_CONNECTIONS 127
 
 /**
  * @brief Type definition for the connection pool
@@ -34,6 +37,7 @@ typedef struct
     uint8_t consecutive_writers; /* Number of consecutive writers */
 
     uint32_t total_connections; /* Total number of connections in the pool */
+    bool is_shutting_dowm;      /** Flag to symbolize that the pool is shutting down  */
 
 } connection_pool_t;
 
@@ -58,7 +62,7 @@ void pool_destroy(connection_pool_t *pool);
  * @param pool Pointer to the shared connection pool
  * @param thread_id The unique identifier of the requesting thread
  */
-void enter_read_pool(connection_pool_t *pool, const uint8_t thread_id);
+bool enter_read_pool(connection_pool_t *pool, const uint8_t thread_id);
 
 /**
  * @brief Exit a read process of the connection pool flow
@@ -74,7 +78,7 @@ void exit_read_pool(connection_pool_t *pool, const uint8_t thread_id);
  * @param pool Pointer to the shared connection pool
  * @param thread_id The unique identifier of the requesting thread
  */
-void enter_write_pool(connection_pool_t *pool, const uint8_t thread_id);
+bool enter_write_pool(connection_pool_t *pool, const uint8_t thread_id);
 
 /**
  * @brief Exit a write process of the connection pool flow

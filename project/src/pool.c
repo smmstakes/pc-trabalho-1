@@ -14,7 +14,7 @@ void pool_init(connection_pool_t *pool)
     pthread_cond_init(&pool->cond_readers, NULL);
     pthread_cond_init(&pool->cond_writers, NULL);
 
-    if (sem_init(&pool->sem_connections, 0, MAX_POOL_CONNECTIONS) != 0)
+    if (sem_init(&pool->sem_connections, 0, MAX_POOL_SIMULTANEOUS_CONNECTIONS) != 0)
     {
         perror("Erro ao inicializar o semaforo!\n");
         exit(EXIT_FAILURE);
@@ -27,9 +27,10 @@ void pool_init(connection_pool_t *pool)
     pool->waiting_writers = 0;
 
     pool->consecutive_readers = 0;
-    pool->consecutive_readers = 0;
+    pool->consecutive_writers = 0;
 
     pool->total_connections = 0;
+    pool->is_shutting_dowm = false;
 }
 
 void pool_destroy(connection_pool_t *pool)
@@ -42,9 +43,15 @@ void pool_destroy(connection_pool_t *pool)
     sem_destroy(&pool->sem_connections);
 }
 
-void enter_read_pool(connection_pool_t *pool, const uint8_t thread_id)
+bool enter_read_pool(connection_pool_t *pool, const uint8_t thread_id)
 {
     pthread_mutex_lock(&pool->lock);
+
+    if (pool->is_shutting_dowm)
+    {
+        pthread_mutex_unlock(&pool->lock);
+        return false;
+    }
 
     bool quota_exhausted = (pool->consecutive_readers >= MAX_POOL_REQUESTS && pool->waiting_writers > 0);
 
@@ -58,6 +65,12 @@ void enter_read_pool(connection_pool_t *pool, const uint8_t thread_id)
         pthread_cond_wait(&pool->cond_readers, &pool->lock);
         pool->waiting_readers--;
 
+        if (pool->is_shutting_dowm)
+        {
+            pthread_mutex_unlock(&pool->lock);
+            return false;
+        }
+
         quota_exhausted = (pool->consecutive_readers >= MAX_POOL_REQUESTS && pool->waiting_writers > 0);
     }
 
@@ -67,21 +80,36 @@ void enter_read_pool(connection_pool_t *pool, const uint8_t thread_id)
 
     pool->consecutive_writers = 0;
 
+    if (pool->total_connections >= MAX_CONNECTIONS)
+    {
+        pool->is_shutting_dowm = true;
+
+        pthread_cond_broadcast(&pool->cond_readers);
+        pthread_cond_broadcast(&pool->cond_writers);
+    }
+
     pthread_mutex_unlock(&pool->lock);
 
     sem_wait(&pool->sem_connections);
 
     printf("[Thread %u] (Leitor) Conexão adquirida...\n", thread_id);
-    printf("Executando queries...\n");
+
+    return true;
 }
 
-void enter_write_pool(connection_pool_t *pool, const uint8_t thread_id)
+bool enter_write_pool(connection_pool_t *pool, const uint8_t thread_id)
 {
     pthread_mutex_lock(&pool->lock);
 
+    if (pool->is_shutting_dowm)
+    {
+        pthread_mutex_unlock(&pool->lock);
+        return false;
+    }
+
     bool quota_exausted = (pool->consecutive_writers >= MAX_POOL_REQUESTS && pool->waiting_readers > 0);
 
-    while (pool->active_writers > 0 || quota_exausted)
+    while (pool->active_readers > 0 || quota_exausted)
     {
         pool->waiting_writers++;
 
@@ -90,6 +118,12 @@ void enter_write_pool(connection_pool_t *pool, const uint8_t thread_id)
 
         pthread_cond_wait(&pool->cond_writers, &pool->lock);
         pool->waiting_writers--;
+
+        if (pool->is_shutting_dowm)
+        {
+            pthread_mutex_unlock(&pool->lock);
+            return false;
+        }
 
         quota_exausted = (pool->consecutive_writers >= MAX_POOL_REQUESTS && pool->waiting_readers > 0);
     }
@@ -100,11 +134,21 @@ void enter_write_pool(connection_pool_t *pool, const uint8_t thread_id)
 
     pool->consecutive_readers = 0;
 
+    if (pool->total_connections >= MAX_CONNECTIONS)
+    {
+        pool->is_shutting_dowm = true;
+
+        pthread_cond_broadcast(&pool->cond_readers);
+        pthread_cond_broadcast(&pool->cond_writers);
+    }
+
     pthread_mutex_unlock(&pool->lock);
 
     sem_wait(&pool->sem_connections);
+
     printf("[Thread %u] (Escritor) Conexão adquirida...\n", thread_id);
-    printf("Executando bulk insert...\n");
+
+    return true;
 }
 
 void exit_read_pool(connection_pool_t *pool, const uint8_t thread_id)

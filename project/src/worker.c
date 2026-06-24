@@ -20,11 +20,18 @@ void *bi_reader_worker(void *arg)
 {
     worker_data_t *data = (worker_data_t *)arg;
 
-    sleep(rand() % 21);
+    while (true)
+    {
+        sleep(rand() % 21);
 
-    enter_read_pool(data->pool, data->thread_id);
-    simulate_read_operation(data->thread_id);
-    exit_read_pool(data->pool, data->thread_id);
+        if (!enter_read_pool(data->pool, data->thread_id))
+        {
+            printf("[Thread %d] (BI) Encerrando atividades...\n", data->thread_id);
+            break;
+        }
+        simulate_read_operation(data->thread_id);
+        exit_read_pool(data->pool, data->thread_id);
+    }
 
     free(data);
 
@@ -35,11 +42,19 @@ void *etl_writer_worker(void *arg)
 {
     worker_data_t *data = (worker_data_t *)arg;
 
-    sleep(rand() % 21);
+    while (true)
+    {
+        sleep(rand() % 21);
 
-    enter_write_pool(data->pool, data->thread_id);
-    simulate_write_operation(data->thread_id);
-    exit_write_pool(data->pool, data->thread_id);
+        if (!enter_write_pool(data->pool, data->thread_id))
+        {
+            printf("[Thread %d] (ETL) Encerrando atividades...\n", data->thread_id);
+            break;
+        }
+
+        simulate_write_operation(data->thread_id);
+        exit_write_pool(data->pool, data->thread_id);
+    }
 
     free(data);
 

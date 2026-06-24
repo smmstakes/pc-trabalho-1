@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "pool.h"
@@ -9,7 +10,7 @@
  */
 typedef struct
 {
-    uint8_t thread_id;      /* Unique identifier for the thread */
+    uint8_t thread_id;       /* Unique identifier for the thread */
     connection_pool_t *pool; /* Pointer to the shared connection pool */
 } worker_data_t;
 
