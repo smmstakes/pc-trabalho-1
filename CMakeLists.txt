@@ -25,7 +25,7 @@ target_compile_options(trabalho_pc PRIVATE
     -march=native
 )
 
-target_include_directories(trabalho_pc PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/project/lib/")
+target_include_directories(trabalho_pc PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/project/include/")
 
 target_link_libraries(trabalho_pc PRIVATE Threads::Threads)
 
